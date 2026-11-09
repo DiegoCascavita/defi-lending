@@ -1,0 +1,29 @@
+name: test
+
+on:
+  push:
+    branches: [main, Master]
+  pull_request:
+
+env:
+  FOUNDRY_PROFILE: default
+
+jobs:
+  check:
+    strategy:
+      fail-fast: true
+    name: Foundry project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Run tests
+        run: forge test -vvv
