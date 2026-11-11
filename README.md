@@ -254,11 +254,13 @@ Post-deploy: record Pool / WETH / DAI / primary / secondary addresses in the tab
 
 | Contract | Sepolia address |
 |---|---|
-| LendingPool | _pending broadcast_ |
-| WETH | `0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9` (or mock) |
-| DAI | _pending broadcast_ |
-| Primary ETH/USD | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
-| Secondary oracle | _pending broadcast_ |
+| LendingPool | [`0x732D2D5E745203eff3a4084d771ceB27B84f665B`](https://sepolia.etherscan.io/address/0x732D2D5E745203eff3a4084d771ceB27B84f665B#code) |
+| WETH | [`0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9`](https://sepolia.etherscan.io/token/0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9) (canonical) |
+| DAI | [`0x3e98D8700FfD75078F918870BA13f32a177a7cbd`](https://sepolia.etherscan.io/address/0x3e98D8700FfD75078F918870BA13f32a177a7cbd#code) (mintable `ERC20Mock`) |
+| Primary ETH/USD | [`0x694AA1769357215DE4FAC081bf1f309aDC325306`](https://sepolia.etherscan.io/address/0x694AA1769357215DE4FAC081bf1f309aDC325306) |
+| Secondary oracle | [`0xaC1F2E02A7bdb40FC3521d6b6Cbffbd6BC6d3c09`](https://sepolia.etherscan.io/address/0xaC1F2E02A7bdb40FC3521d6b6Cbffbd6BC6d3c09#code) |
+
+Also recorded in [`deployments/sepolia.json`](./deployments/sepolia.json).
 
 Canonical WETH has no `mint` — wrap Sepolia ETH via `deposit()` or use `SEPOLIA_USE_MOCK_WETH=true`. Mock DAI: call `mint` from the deployer.
 
@@ -314,14 +316,14 @@ Interpret `arbitrary-send`, `reentrancy-eth`, `timestamp`, and `divide-before-mu
 
 ---
 
-## Cómo probar (resumen)
+## How to try it (summary)
 
-1. Instalar Foundry (`foundryup`), luego `forge install && forge build && forge test`.
-2. En una terminal: `anvil`. En otra: `forge script script/DeployLending.s.sol:DeployLending --rpc-url http://127.0.0.1:8545 --broadcast -vvvv`.
-3. Con `cast`: mint WETH/DAI → `supplyLiquidity` → `depositCollateral` → `borrow`. Opcional: bajar **ambos** feeds y llamar `liquidate`.
-4. Fork opcional: `SEPOLIA_RPC_URL` o `MAINNET_RPC_URL` en `.env` → `forge test --match-path 'test/fork/*' -vv`.
-5. Sepolia: completar `.env` con tus claves y usar el checklist de arriba (`--broadcast --verify`). **No inventar keys.**
-6. **No hay UI ni Playwright aquí** — eso va en [defi-dapp](https://github.com/DiegoCascavita/defi-dapp).
+1. Install Foundry (`foundryup`), then `forge install && forge build && forge test`.
+2. In one terminal: `anvil`. In another: `forge script script/DeployLending.s.sol:DeployLending --rpc-url http://127.0.0.1:8545 --broadcast -vvvv`.
+3. With `cast`: mint WETH/DAI → `supplyLiquidity` → `depositCollateral` → `borrow`. Optional: crash **both** feeds and call `liquidate`.
+4. Optional fork: set `SEPOLIA_RPC_URL` or `MAINNET_RPC_URL` in `.env` → `forge test --match-path 'test/fork/*' -vv`.
+5. Sepolia: fill `.env` with your keys and follow the checklist above (`--broadcast --verify`). **Do not invent keys.**
+6. **No UI or Playwright in this repo** — that lives in [defi-dapp](https://github.com/DiegoCascavita/defi-dapp).
 
 ---
 
