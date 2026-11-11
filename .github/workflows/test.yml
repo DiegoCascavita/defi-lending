@@ -4,18 +4,21 @@ on:
   push:
     branches: [main, Master]
   pull_request:
+  workflow_dispatch:
 
 env:
-  FOUNDRY_PROFILE: default
+  FOUNDRY_PROFILE: ci
 
 jobs:
   check:
-    strategy:
-      fail-fast: true
     name: Foundry project
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -24,6 +27,9 @@ jobs:
 
       - name: Show Forge version
         run: forge --version
+
+      - name: Build
+        run: forge build --sizes
 
       - name: Run tests
         run: forge test -vvv

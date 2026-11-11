@@ -1,12 +1,29 @@
 # DeFi Lending
 
-Overcollateralized lending market with deposit / borrow / repay / withdraw, liquidations, and a **dual oracle** (Chainlink AggregatorV3 primary + Pyth-style secondary with deviation check). Foundry coverage: unit + fuzz + invariants.
+Overcollateralized lending market with deposit / borrow / repay / withdraw, liquidations, and a **dual oracle** (Chainlink AggregatorV3 primary + Pyth-style secondary with deviation check). Foundry coverage: unit + fuzz + invariants + optional fork tests.
 
-**No UI and no Playwright in this repo.** Browser E2E belongs to portfolio project 3 (dApp). Manual testing here is Foundry + Anvil + `cast`.
-
-Sibling protocol: [defi-stablecoin](https://github.com/DiegoCascavita/defi-stablecoin) (DSC engine). This repo is a separate lending market, not a wrapper around DSC.
+**No UI and no Playwright in this repo.** Browser E2E belongs to [defi-dapp](https://github.com/DiegoCascavita/defi-dapp) (Cascade Lend). Manual testing here is Foundry + Anvil + `cast`.
 
 Repo: [github.com/DiegoCascavita/defi-lending](https://github.com/DiegoCascavita/defi-lending)
+
+---
+
+## Cascade Suite
+
+Related DeFi portfolio (read in order):
+
+| # | Repo | Role |
+|---|---|---|
+| 1 | [defi-stablecoin](https://github.com/DiegoCascavita/defi-stablecoin) | Overcollateralized DSC engine + `OracleLib` stale guard |
+| 2 | **defi-lending** (this repo) | Lending pool + dual oracle + liquidations |
+| 3 | [defi-dapp](https://github.com/DiegoCascavita/defi-dapp) | Cascade Lend — Next.js / wagmi UI on Anvil `31337` |
+
+```
+defi-stablecoin ──► defi-lending ──► defi-dapp (Cascade Lend)
+   DSC / CR~200%      dual-oracle HF      wallet + supply/borrow UI
+```
+
+This lending market is a **separate** protocol from DSC (not a wrapper). Shared ideas: health factor, liquidations, Chainlink stale checks.
 
 ---
 
@@ -28,7 +45,7 @@ Liquidity provider          Borrower                    Liquidator
                ▼                                ▼
      ┌──────────────────┐            ┌─────────────────────┐
      │ Chainlink feed   │            │ Secondary oracle    │
-     │ AggregatorV3     │◄─dev≤1%───►│ Pyth-style mock     │
+     │ AggregatorV3     │◄─dev≤1%───►│ Pyth-style          │
      │ (+ OracleLib     │            │ price/conf/time     │
      │  stale check)    │            └─────────────────────┘
      └──────────────────┘
@@ -40,7 +57,7 @@ Liquidity provider          Borrower                    Liquidator
 | `OracleLib` | Circuit breaker if the Chainlink price is stale (> 3 h) |
 | `DualOracleLib` | Requires primary ≈ secondary within `MAX_ORACLE_DEVIATION_BPS` (1%); also checks secondary freshness + confidence width |
 | `ISecondaryOracle` | Pyth-style interface (`price`, `conf`, `publishTime`) |
-| `HelperConfig` + `DeployLending` | Local Anvil deploy with mock WETH, DAI, Chainlink feed, and secondary oracle |
+| `HelperConfig` + `DeployLending` | Anvil mocks **or** Sepolia real Chainlink ETH/USD (+ deploy-time secondary / DAI mocks) |
 
 ### Risk parameters
 
@@ -70,10 +87,25 @@ script/
 test/
   unit/          # Pool, OracleLib, DualOracleLib
   fuzz/          # Handler + invariants + open fuzz properties
+  fork/          # Optional: live Chainlink via createSelectFork
   mocks/         # ERC20Mock, MockV3Aggregator, MockSecondaryOracle
 ```
 
 Forge libs: OpenZeppelin v5, chainlink-brownie-contracts, forge-std.
+
+---
+
+## Testing (7 types)
+
+| Type | Status | How |
+|---|---|---|
+| Unit | Have | `forge test --match-path 'test/unit/*'` |
+| Continuous (CI) | Have | `.github/workflows/test.yml` on push/PR |
+| Local (Anvil) | Have | `anvil` + `DeployLending --broadcast` + `cast` |
+| Fork | Have (opt-in) | `test/fork/*` when `SEPOLIA_RPC_URL` or `MAINNET_RPC_URL` is set; **skipped** otherwise so CI stays green |
+| Real network | Ready (scripted) | Sepolia `HelperConfig` + `--broadcast --verify` checklist below — needs your keys |
+| Fuzz | Have | `test/fuzz/OpenInvariantsTest.t.sol` (`fuzz.runs = 256`) |
+| Invariant | Have | `test/fuzz/Invariants.t.sol` (`invariant.runs = 128`) |
 
 ---
 
@@ -102,7 +134,26 @@ forge test --match-path 'test/fuzz/*' -vv
 
 Fuzz / invariant knobs live in `foundry.toml` (`fuzz.runs = 256`, `invariant.runs = 128`, `depth = 64`).
 
-### 3. Anvil + deploy script
+### 3. Fork tests (optional)
+
+```bash
+cp -n .env.example .env
+# set SEPOLIA_RPC_URL=https://...  (and/or MAINNET_RPC_URL)
+source .env
+forge test --match-path 'test/fork/*' -vv
+```
+
+Without those env vars, fork tests call `vm.skip` and the default `forge test` suite still passes.
+
+What the fork suite covers:
+
+- Live Chainlink ETH/USD freshness (`OracleLib` stale check)
+- `DualOracleLib` agreement vs a secondary calibrated to the live answer
+- Deviation revert when secondary drifts > 1%
+- Borrow / HF using the live primary price
+- Liquidation after `vm.mockCall` crashes the primary (Chainlink itself is not writable)
+
+### 4. Anvil + deploy script
 
 ```bash
 # Terminal 1 — local chain
@@ -119,7 +170,7 @@ The script deploys mock WETH + DAI, `MockV3Aggregator` ($2000/ETH), `MockSeconda
 
 Copy the printed addresses for the steps below (or parse `broadcast/.../run-latest.json`).
 
-### 4. Manual flow with `cast`
+### 5. Manual flow with `cast`
 
 Use Anvil account #0 (default key shown by `anvil`). Replace placeholders with addresses from the deploy.
 
@@ -168,6 +219,51 @@ Repay / withdraw / liquidate follow the same pattern (`repay`, `withdrawCollater
 
 ---
 
+## Sepolia deploy (checklist — do not invent keys)
+
+`HelperConfig` selects Sepolia when `block.chainid == 11155111`.
+
+| Item | Value / source |
+|---|---|
+| ETH/USD primary | `0x694AA1769357215DE4FAC081bf1f309aDC325306` — [Chainlink Sepolia feeds](https://docs.chain.link/data-feeds/price-feeds/addresses?network=ethereum&page=1#sepolia-testnet) |
+| WETH | `0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9` — [Sepolia WETH](https://sepolia.etherscan.io/token/0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9) (or set `SEPOLIA_USE_MOCK_WETH=true` for a mintable mock) |
+| Secondary | Deployed by `DeployLending` as `MockSecondaryOracle` synced to the live Chainlink answer (no public Pyth-style `ISecondaryOracle` on Sepolia) |
+| DAI | Deployed by `DeployLending` as mintable `ERC20Mock` (no reliable Maker faucet) |
+
+**Secrets** (local `.env` only — see `.env.example`; never commit):
+
+1. `SEPOLIA_RPC_URL` — Alchemy / Infura / public Sepolia RPC  
+2. `PRIVATE_KEY` — funded **test** wallet only  
+3. `ETHERSCAN_API_KEY` — for `--verify`  
+
+If any of these are missing, **do not broadcast**. The script refuses Sepolia broadcast when `PRIVATE_KEY` is unset.
+
+```bash
+cp -n .env.example .env
+# fill SEPOLIA_RPC_URL, PRIVATE_KEY, ETHERSCAN_API_KEY on your machine
+source .env
+
+forge script script/DeployLending.s.sol:DeployLending \
+  --rpc-url "$SEPOLIA_RPC_URL" \
+  --broadcast \
+  --verify \
+  -vvvv
+```
+
+Post-deploy: record Pool / WETH / DAI / primary / secondary addresses in the table below and point [defi-dapp](https://github.com/DiegoCascavita/defi-dapp) `NEXT_PUBLIC_*` at them when wiring Sepolia mode.
+
+| Contract | Sepolia address |
+|---|---|
+| LendingPool | _pending broadcast_ |
+| WETH | `0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9` (or mock) |
+| DAI | _pending broadcast_ |
+| Primary ETH/USD | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
+| Secondary oracle | _pending broadcast_ |
+
+Canonical WETH has no `mint` — wrap Sepolia ETH via `deposit()` or use `SEPOLIA_USE_MOCK_WETH=true`. Mock DAI: call `mint` from the deployer.
+
+---
+
 ## Features
 
 - Deposit WETH collateral and withdraw when healthy
@@ -176,8 +272,8 @@ Repay / withdraw / liquidate follow the same pattern (`repay`, `withdrawCollater
 - Repay debt
 - Liquidate under-collateralized positions (5% bonus)
 - Dual oracle: Chainlink AggregatorV3 + secondary Pyth-style feed with 1% deviation + stale/confidence guards
-- Anvil deploy scripts + mocks
-- Unit, fuzz, and accounting invariant tests
+- Anvil + Sepolia-ready deploy scripts (`HelperConfig`)
+- Unit, fuzz, invariant, and optional fork tests
 
 ---
 
@@ -187,8 +283,8 @@ Repay / withdraw / liquidate follow the same pattern (`repay`, `withdrawCollater
 |---|---|---|
 | **Reentrancy** on deposit/borrow/repay/liquidate | `ReentrancyGuard` + CEI + `SafeERC20` | Exotic ERC777/callback tokens |
 | **Oracle stale / freeze** | `OracleLib` 3h timeout (primary) + secondary publishTime timeout | No TWAP fallback; dead feed halts pricing |
-| **Oracle manipulation / disagreement** | Dual-feed deviation ≤ 1% + secondary confidence width cap | Both mocks on Anvil are admin-trusted; correlated failure of both feeds still possible |
-| **Access control** | No privileged mint of debt asset; pool only transfers ERC20s it holds | Deployer of mocks can set prices in tests |
+| **Oracle manipulation / disagreement** | Dual-feed deviation ≤ 1% + secondary confidence width cap | Anvil mocks are admin-trusted; Sepolia secondary is deploy-time mock (ops must refresh or re-deploy if stale); correlated failure of both feeds still possible |
+| **Access control** | No privileged mint of debt asset; pool only transfers ERC20s it holds | Deployer of mocks can set prices / mint test DAI |
 | **Liquidity shortfall** | `getAvailableLiquidity` gates borrows and LP withdrawals | Bank-run if all LPs exit while debt remains (debt still backed by collateral + liquidations) |
 | **Liquidation griefing / bad debt** | 5% bonus + partial liquidations | Sharp price crash can leave bad debt without liquidators |
 | **Precision / rounding** | 8 → 18 decimals via `ADDITIONAL_FEED_PRECISION` | Dust edge cases on round-trips |
@@ -223,7 +319,9 @@ Interpret `arbitrary-send`, `reentrancy-eth`, `timestamp`, and `divide-before-mu
 1. Instalar Foundry (`foundryup`), luego `forge install && forge build && forge test`.
 2. En una terminal: `anvil`. En otra: `forge script script/DeployLending.s.sol:DeployLending --rpc-url http://127.0.0.1:8545 --broadcast -vvvv`.
 3. Con `cast`: mint WETH/DAI → `supplyLiquidity` → `depositCollateral` → `borrow`. Opcional: bajar **ambos** feeds y llamar `liquidate`.
-4. **No hay UI ni Playwright aquí** — eso va en el proyecto dApp.
+4. Fork opcional: `SEPOLIA_RPC_URL` o `MAINNET_RPC_URL` en `.env` → `forge test --match-path 'test/fork/*' -vv`.
+5. Sepolia: completar `.env` con tus claves y usar el checklist de arriba (`--broadcast --verify`). **No inventar keys.**
+6. **No hay UI ni Playwright aquí** — eso va en [defi-dapp](https://github.com/DiegoCascavita/defi-dapp).
 
 ---
 
