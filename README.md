@@ -2,7 +2,7 @@
 
 Overcollateralized lending market with deposit / borrow / repay / withdraw, liquidations, and a **dual oracle** (Chainlink AggregatorV3 primary + Pyth-style secondary with deviation check). Foundry coverage: unit + fuzz + invariants + optional fork tests.
 
-**No UI and no Playwright in this repo.** Browser E2E belongs to [defi-dapp](https://github.com/DiegoCascavita/defi-dapp) (Cascade Lend). Manual testing here is Foundry + Anvil + `cast`.
+**No UI** Browser E2E belongs to [defi-dapp](https://github.com/DiegoCascavita/defi-dapp) (Cascade Lend). Manual testing here is Foundry + Anvil + `cast`.
 
 Repo: [github.com/DiegoCascavita/defi-lending](https://github.com/DiegoCascavita/defi-lending)
 
