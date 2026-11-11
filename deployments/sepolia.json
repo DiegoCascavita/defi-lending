@@ -1,0 +1,51 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0x70E2FccDD4bd53fDd1b9bE4d4cc992467576a1DC",
+  "blockNumber": 12111618,
+  "script": "script/DeployLending.s.sol:DeployLending",
+  "contracts": {
+    "LendingPool": {
+      "address": "0x732D2D5E745203eff3a4084d771ceB27B84f665B",
+      "txHash": "0x2fb4c744f4405d1e8a5ba2fa320a0dca37c613b9f6ebb596ec8253654cad3619",
+      "etherscan": "https://sepolia.etherscan.io/address/0x732D2D5E745203eff3a4084d771ceB27B84f665B#code",
+      "verified": true
+    },
+    "WETH": {
+      "address": "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
+      "note": "Canonical Sepolia WETH (not deployed by this script)",
+      "etherscan": "https://sepolia.etherscan.io/token/0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9"
+    },
+    "DAI": {
+      "address": "0x3e98D8700FfD75078F918870BA13f32a177a7cbd",
+      "txHash": "0x3f46cd7c0126e156eec3c4fd6d36446eeb772645d2f6217fd38c77bce53b1038",
+      "contract": "ERC20Mock",
+      "etherscan": "https://sepolia.etherscan.io/address/0x3e98D8700FfD75078F918870BA13f32a177a7cbd#code",
+      "verified": true
+    },
+    "PrimaryEthUsdFeed": {
+      "address": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+      "note": "Chainlink ETH/USD AggregatorV3 on Sepolia",
+      "etherscan": "https://sepolia.etherscan.io/address/0x694AA1769357215DE4FAC081bf1f309aDC325306"
+    },
+    "SecondaryOracle": {
+      "address": "0xaC1F2E02A7bdb40FC3521d6b6Cbffbd6BC6d3c09",
+      "txHash": "0xca8c4fbb7deb41d587103e7fe1eab66f339a8b542860429c0267d4318b1f3e7b",
+      "contract": "MockSecondaryOracle",
+      "etherscan": "https://sepolia.etherscan.io/address/0xaC1F2E02A7bdb40FC3521d6b6Cbffbd6BC6d3c09#code",
+      "verified": true
+    },
+    "OracleLib": {
+      "address": "0xa3167F4e63A53778f8f5c5C6590A94F6fEAFD42f",
+      "txHash": "0x87a689bebfa1e9e9e0c3349e1dcb039d686787ddf4463a6c733a15140b37ea45",
+      "etherscan": "https://sepolia.etherscan.io/address/0xa3167F4e63A53778f8f5c5C6590A94F6fEAFD42f#code",
+      "verified": true
+    },
+    "DualOracleLib": {
+      "address": "0x78aecC258dFa0C5a258c400402Eb57B71363C71a",
+      "txHash": "0x162ef32c3ecddf28557c58af68273a3862b7854da4e1bfe6d64ead6dbe5909f5",
+      "etherscan": "https://sepolia.etherscan.io/address/0x78aecC258dFa0C5a258c400402Eb57B71363C71a#code",
+      "verified": true
+    }
+  }
+}
